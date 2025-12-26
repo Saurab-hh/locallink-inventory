@@ -1,12 +1,9 @@
 import { useState } from 'react';
-import { motion } from 'framer-motion';
-import { useInventoryStore, Business } from '@/store/inventoryStore';
+import { useCreateBusiness, useUpdateBusiness, Business, BusinessFormData } from '@/hooks/useBusinesses';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { toast } from 'sonner';
 import { Plus, Save, Building2 } from 'lucide-react';
 
 interface BusinessFormProps {
@@ -15,36 +12,55 @@ interface BusinessFormProps {
 }
 
 export function BusinessForm({ business, onSuccess }: BusinessFormProps) {
-  const { addBusiness, updateBusiness } = useInventoryStore();
+  const createBusiness = useCreateBusiness();
+  const updateBusiness = useUpdateBusiness();
   const [open, setOpen] = useState(false);
   
   const [formData, setFormData] = useState({
     name: business?.name || '',
+    owner: business?.owner || '',
     category: business?.category || '',
     address: business?.address || '',
-    phone: business?.phone || '',
-    email: business?.email || '',
-    description: business?.description || '',
+    contact: business?.contact || '',
   });
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!formData.name || !formData.email) {
-      toast.error('Please fill in all required fields');
+    if (!formData.name || !formData.owner || !formData.contact) {
       return;
     }
 
-    if (business) {
-      updateBusiness(business.id, formData);
-      toast.success('Business updated successfully');
-    } else {
-      addBusiness(formData);
-      toast.success('Business added successfully');
-    }
+    const businessData: BusinessFormData = {
+      name: formData.name,
+      owner: formData.owner,
+      category: formData.category,
+      address: formData.address,
+      contact: formData.contact,
+    };
 
-    setOpen(false);
-    onSuccess?.();
+    if (business) {
+      updateBusiness.mutate({ id: business.id, ...businessData }, {
+        onSuccess: () => {
+          setOpen(false);
+          onSuccess?.();
+        }
+      });
+    } else {
+      createBusiness.mutate(businessData, {
+        onSuccess: () => {
+          setOpen(false);
+          setFormData({
+            name: '',
+            owner: '',
+            category: '',
+            address: '',
+            contact: '',
+          });
+          onSuccess?.();
+        }
+      });
+    }
   };
 
   const handleChange = (field: string, value: string) => {
@@ -83,35 +99,35 @@ export function BusinessForm({ business, onSuccess }: BusinessFormProps) {
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="category">Category</Label>
+              <Label htmlFor="owner">Owner Name *</Label>
               <Input
-                id="category"
-                value={formData.category}
-                onChange={(e) => handleChange('category', e.target.value)}
-                placeholder="e.g., Electronics"
+                id="owner"
+                value={formData.owner}
+                onChange={(e) => handleChange('owner', e.target.value)}
+                placeholder="Enter owner name"
+                required
               />
             </div>
           </div>
 
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="email">Email *</Label>
+              <Label htmlFor="contact">Contact (Phone/Email) *</Label>
               <Input
-                id="email"
-                type="email"
-                value={formData.email}
-                onChange={(e) => handleChange('email', e.target.value)}
-                placeholder="contact@business.com"
+                id="contact"
+                value={formData.contact}
+                onChange={(e) => handleChange('contact', e.target.value)}
+                placeholder="+91 98765 43210"
                 required
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="phone">Phone</Label>
+              <Label htmlFor="category">Category</Label>
               <Input
-                id="phone"
-                value={formData.phone}
-                onChange={(e) => handleChange('phone', e.target.value)}
-                placeholder="+1 555-0123"
+                id="category"
+                value={formData.category}
+                onChange={(e) => handleChange('category', e.target.value)}
+                placeholder="e.g., Electronics"
               />
             </div>
           </div>
@@ -126,22 +142,15 @@ export function BusinessForm({ business, onSuccess }: BusinessFormProps) {
             />
           </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="description">Description</Label>
-            <Textarea
-              id="description"
-              value={formData.description}
-              onChange={(e) => handleChange('description', e.target.value)}
-              placeholder="Brief description of the business"
-              rows={3}
-            />
-          </div>
-
           <div className="flex justify-end gap-3 pt-4">
             <Button type="button" variant="outline" onClick={() => setOpen(false)}>
               Cancel
             </Button>
-            <Button type="submit" className="gap-2">
+            <Button 
+              type="submit" 
+              className="gap-2"
+              disabled={createBusiness.isPending || updateBusiness.isPending}
+            >
               <Save className="w-4 h-4" />
               {business ? 'Update' : 'Add'} Business
             </Button>

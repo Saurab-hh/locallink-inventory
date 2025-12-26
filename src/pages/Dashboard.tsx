@@ -1,18 +1,40 @@
 import { motion } from 'framer-motion';
-import { useInventoryStore } from '@/store/inventoryStore';
+import { useProducts } from '@/hooks/useProducts';
+import { useBusinesses } from '@/hooks/useBusinesses';
 import { StatCard } from '@/components/dashboard/StatCard';
 import { RecentActivity } from '@/components/dashboard/RecentActivity';
 import { LowStockAlert } from '@/components/dashboard/LowStockAlert';
 import { Package, Building2, AlertTriangle, TrendingUp, QrCode, ShoppingCart } from 'lucide-react';
+import { formatINR } from '@/lib/formatCurrency';
+import { Skeleton } from '@/components/ui/skeleton';
 
 const Dashboard = () => {
-  const { products, businesses } = useInventoryStore();
+  const { data: products = [], isLoading: productsLoading } = useProducts();
+  const { data: businesses = [], isLoading: businessesLoading } = useBusinesses();
+  
+  const isLoading = productsLoading || businessesLoading;
   
   const totalProducts = products.length;
   const totalBusinesses = businesses.length;
-  const lowStockCount = products.filter(p => p.quantity <= p.minStock).length;
-  const totalInventoryValue = products.reduce((sum, p) => sum + (p.price * p.quantity), 0);
-  const totalItems = products.reduce((sum, p) => sum + p.quantity, 0);
+  const lowStockCount = products.filter(p => p.current_stock <= p.min_stock).length;
+  const totalInventoryValue = products.reduce((sum, p) => sum + (p.price * p.current_stock), 0);
+  const totalItems = products.reduce((sum, p) => sum + p.current_stock, 0);
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen p-6 lg:p-8">
+        <div className="mb-8">
+          <Skeleton className="h-9 w-48 mb-2" />
+          <Skeleton className="h-5 w-72" />
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-6 mb-8">
+          {[1, 2, 3, 4].map(i => (
+            <Skeleton key={i} className="h-32" />
+          ))}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen p-6 lg:p-8">
@@ -53,7 +75,7 @@ const Dashboard = () => {
         />
         <StatCard
           title="Inventory Value"
-          value={`$${totalInventoryValue.toLocaleString('en-US', { minimumFractionDigits: 2 })}`}
+          value={formatINR(totalInventoryValue)}
           subtitle="Total estimated value"
           icon={TrendingUp}
           variant="success"

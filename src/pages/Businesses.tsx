@@ -1,9 +1,11 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
-import { useInventoryStore } from '@/store/inventoryStore';
+import { useBusinesses, useDeleteBusiness } from '@/hooks/useBusinesses';
+import { useProducts } from '@/hooks/useProducts';
 import { BusinessForm } from '@/components/businesses/BusinessForm';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Skeleton } from '@/components/ui/skeleton';
 import { 
   Building2, 
   Search, 
@@ -32,11 +34,12 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
-import { toast } from 'sonner';
 import { Link } from 'react-router-dom';
 
 const Businesses = () => {
-  const { businesses, products, deleteBusiness } = useInventoryStore();
+  const { data: businesses = [], isLoading } = useBusinesses();
+  const { data: products = [] } = useProducts();
+  const deleteBusiness = useDeleteBusiness();
   const [searchQuery, setSearchQuery] = useState('');
 
   const filteredBusinesses = businesses.filter(b => 
@@ -45,13 +48,29 @@ const Businesses = () => {
   );
 
   const getBusinessProductCount = (businessId: string) => {
-    return products.filter(p => p.businessId === businessId).length;
+    return products.filter(p => p.business_id === businessId).length;
   };
 
-  const handleDelete = (id: string, name: string) => {
-    deleteBusiness(id);
-    toast.success(`${name} has been removed`);
+  const handleDelete = (id: string) => {
+    deleteBusiness.mutate(id);
   };
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen p-6 lg:p-8">
+        <div className="mb-8">
+          <Skeleton className="h-9 w-48 mb-2" />
+          <Skeleton className="h-5 w-72" />
+        </div>
+        <Skeleton className="h-16 mb-6" />
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+          {[1, 2, 3, 4].map(i => (
+            <Skeleton key={i} className="h-72" />
+          ))}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen p-6 lg:p-8">
@@ -151,13 +170,13 @@ const Businesses = () => {
                             <AlertDialogHeader>
                               <AlertDialogTitle>Delete Business</AlertDialogTitle>
                               <AlertDialogDescription>
-                                Are you sure you want to delete "{business.name}"? This will not delete associated products.
+                                Are you sure you want to delete "{business.name}"? This will also delete all associated products.
                               </AlertDialogDescription>
                             </AlertDialogHeader>
                             <AlertDialogFooter>
                               <AlertDialogCancel>Cancel</AlertDialogCancel>
                               <AlertDialogAction
-                                onClick={() => handleDelete(business.id, business.name)}
+                                onClick={() => handleDelete(business.id)}
                                 className="bg-destructive hover:bg-destructive/90"
                               >
                                 Delete
@@ -185,8 +204,8 @@ const Businesses = () => {
                     </div>
                   </div>
 
-                  <p className="text-sm text-muted-foreground mb-4 line-clamp-2">
-                    {business.description || 'No description available'}
+                  <p className="text-sm text-muted-foreground mb-4">
+                    Owner: {business.owner}
                   </p>
 
                   <div className="space-y-2 text-sm">
@@ -196,16 +215,12 @@ const Businesses = () => {
                         <span className="truncate">{business.address}</span>
                       </div>
                     )}
-                    {business.phone && (
+                    {business.contact && (
                       <div className="flex items-center gap-2 text-muted-foreground">
                         <Phone className="w-4 h-4 flex-shrink-0" />
-                        <span>{business.phone}</span>
+                        <span>{business.contact}</span>
                       </div>
                     )}
-                    <div className="flex items-center gap-2 text-muted-foreground">
-                      <Mail className="w-4 h-4 flex-shrink-0" />
-                      <span className="truncate">{business.email}</span>
-                    </div>
                   </div>
                 </div>
               </motion.div>

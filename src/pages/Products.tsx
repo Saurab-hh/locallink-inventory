@@ -1,12 +1,15 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
-import { useInventoryStore } from '@/store/inventoryStore';
+import { useProducts, useDeleteProduct, Product } from '@/hooks/useProducts';
+import { useBusinesses } from '@/hooks/useBusinesses';
 import { ProductForm } from '@/components/products/ProductForm';
 import { QRCodeModal } from '@/components/products/QRCodeDisplay';
 import { StockUpdateModal } from '@/components/products/StockUpdateModal';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Skeleton } from '@/components/ui/skeleton';
+import { formatINR } from '@/lib/formatCurrency';
 import { 
   Package, 
   Search, 
@@ -34,11 +37,15 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
-import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 
 const Products = () => {
-  const { products, businesses, deleteProduct, searchQuery, setSearchQuery, selectedCategory, setSelectedCategory } = useInventoryStore();
+  const { data: products = [], isLoading } = useProducts();
+  const { data: businesses = [] } = useBusinesses();
+  const deleteProduct = useDeleteProduct();
+  
+  const [searchQuery, setSearchQuery] = useState('');
+  const [selectedCategory, setSelectedCategory] = useState('all');
   const [sortBy, setSortBy] = useState<'name' | 'quantity' | 'price'>('name');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
 
@@ -54,14 +61,13 @@ const Products = () => {
     .sort((a, b) => {
       let comparison = 0;
       if (sortBy === 'name') comparison = a.name.localeCompare(b.name);
-      else if (sortBy === 'quantity') comparison = a.quantity - b.quantity;
+      else if (sortBy === 'quantity') comparison = a.current_stock - b.current_stock;
       else if (sortBy === 'price') comparison = a.price - b.price;
       return sortOrder === 'asc' ? comparison : -comparison;
     });
 
-  const handleDelete = (id: string, name: string) => {
-    deleteProduct(id);
-    toast.success(`${name} has been deleted`);
+  const handleDelete = (id: string) => {
+    deleteProduct.mutate(id);
   };
 
   const getStockStatus = (quantity: number, minStock: number) => {
@@ -69,6 +75,23 @@ const Products = () => {
     if (quantity <= minStock) return { label: 'Low Stock', class: 'badge-warning' };
     return { label: 'In Stock', class: 'badge-success' };
   };
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen p-6 lg:p-8">
+        <div className="mb-8">
+          <Skeleton className="h-9 w-48 mb-2" />
+          <Skeleton className="h-5 w-72" />
+        </div>
+        <Skeleton className="h-16 mb-6" />
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+          {[1, 2, 3, 4, 5, 6].map(i => (
+            <Skeleton key={i} className="h-64" />
+          ))}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen p-6 lg:p-8">
@@ -85,7 +108,7 @@ const Products = () => {
               Manage your inventory products and generate QR codes.
             </p>
           </div>
-          <ProductForm />
+          <ProductForm businesses={businesses} />
         </div>
       </motion.div>
 
@@ -149,11 +172,11 @@ const Products = () => {
                 ? 'Try adjusting your filters' 
                 : 'Add your first product to get started'}
             </p>
-            <ProductForm />
+            <ProductForm businesses={businesses} />
           </motion.div>
         ) : (
           filteredProducts.map((product, index) => {
-            const status = getStockStatus(product.quantity, product.minStock);
+            const status = getStockStatus(product.current_stock, product.min_stock);
             return (
               <motion.div
                 key={product.id}
@@ -217,7 +240,7 @@ const Products = () => {
                           <AlertDialogFooter>
                             <AlertDialogCancel>Cancel</AlertDialogCancel>
                             <AlertDialogAction
-                              onClick={() => handleDelete(product.id, product.name)}
+                              onClick={() => handleDelete(product.id)}
                               className="bg-destructive hover:bg-destructive/90"
                             >
                               Delete
@@ -246,20 +269,20 @@ const Products = () => {
                   <div>
                     <p className="text-xs text-muted-foreground">Stock</p>
                     <p className="text-lg font-bold text-foreground">
-                      {product.quantity}
+                      {product.current_stock}
                       <span className="text-sm font-normal text-muted-foreground ml-1">
-                        / {product.minStock} min
+                        / {product.min_stock} min
                       </span>
                     </p>
                   </div>
                   <div className="text-right">
                     <p className="text-xs text-muted-foreground">Price</p>
-                    <p className="text-lg font-bold text-primary">${product.price.toFixed(2)}</p>
+                    <p className="text-lg font-bold text-primary">{formatINR(product.price)}</p>
                   </div>
                 </div>
 
                 <p className="text-xs text-muted-foreground mt-3">
-                  {product.businessName}
+                  {product.business_name}
                 </p>
               </motion.div>
             );

@@ -1,61 +1,79 @@
 import { useState } from 'react';
-import { motion } from 'framer-motion';
-import { useInventoryStore, Product } from '@/store/inventoryStore';
+import { useCreateProduct, useUpdateProduct, Product, ProductFormData } from '@/hooks/useProducts';
+import { Business } from '@/hooks/useBusinesses';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { toast } from 'sonner';
-import { Plus, Save, X } from 'lucide-react';
+import { Plus, Save } from 'lucide-react';
 
 interface ProductFormProps {
   product?: Product;
+  businesses: Business[];
   onSuccess?: () => void;
 }
 
-export function ProductForm({ product, onSuccess }: ProductFormProps) {
-  const { businesses, addProduct, updateProduct } = useInventoryStore();
+export function ProductForm({ product, businesses, onSuccess }: ProductFormProps) {
+  const createProduct = useCreateProduct();
+  const updateProduct = useUpdateProduct();
   const [open, setOpen] = useState(false);
   
   const [formData, setFormData] = useState({
     name: product?.name || '',
     sku: product?.sku || '',
     category: product?.category || '',
-    quantity: product?.quantity || 0,
-    minStock: product?.minStock || 10,
+    current_stock: product?.current_stock || 0,
+    min_stock: product?.min_stock || 10,
     price: product?.price || 0,
-    businessId: product?.businessId || '',
+    business_id: product?.business_id || '',
     description: product?.description || '',
   });
-
-  const selectedBusiness = businesses.find(b => b.id === formData.businessId);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!formData.name || !formData.sku || !formData.businessId) {
-      toast.error('Please fill in all required fields');
+    if (!formData.name || !formData.sku || !formData.business_id) {
       return;
     }
 
-    if (product) {
-      updateProduct(product.id, {
-        ...formData,
-        businessName: selectedBusiness?.name || '',
-      });
-      toast.success('Product updated successfully');
-    } else {
-      addProduct({
-        ...formData,
-        businessName: selectedBusiness?.name || '',
-      });
-      toast.success('Product added successfully');
-    }
+    const productData: ProductFormData = {
+      name: formData.name,
+      sku: formData.sku,
+      category: formData.category,
+      current_stock: formData.current_stock,
+      min_stock: formData.min_stock,
+      price: formData.price,
+      business_id: formData.business_id,
+      description: formData.description,
+    };
 
-    setOpen(false);
-    onSuccess?.();
+    if (product) {
+      updateProduct.mutate({ id: product.id, ...productData }, {
+        onSuccess: () => {
+          setOpen(false);
+          onSuccess?.();
+        }
+      });
+    } else {
+      createProduct.mutate(productData, {
+        onSuccess: () => {
+          setOpen(false);
+          setFormData({
+            name: '',
+            sku: '',
+            category: '',
+            current_stock: 0,
+            min_stock: 10,
+            price: 0,
+            business_id: '',
+            description: '',
+          });
+          onSuccess?.();
+        }
+      });
+    }
   };
 
   const handleChange = (field: string, value: string | number) => {
@@ -107,8 +125,8 @@ export function ProductForm({ product, onSuccess }: ProductFormProps) {
             <div className="space-y-2">
               <Label htmlFor="business">Business *</Label>
               <Select
-                value={formData.businessId}
-                onValueChange={(value) => handleChange('businessId', value)}
+                value={formData.business_id}
+                onValueChange={(value) => handleChange('business_id', value)}
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Select business" />
@@ -135,27 +153,27 @@ export function ProductForm({ product, onSuccess }: ProductFormProps) {
 
           <div className="grid grid-cols-3 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="quantity">Quantity</Label>
+              <Label htmlFor="current_stock">Quantity</Label>
               <Input
-                id="quantity"
+                id="current_stock"
                 type="number"
                 min="0"
-                value={formData.quantity}
-                onChange={(e) => handleChange('quantity', parseInt(e.target.value) || 0)}
+                value={formData.current_stock}
+                onChange={(e) => handleChange('current_stock', parseInt(e.target.value) || 0)}
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="minStock">Min Stock</Label>
+              <Label htmlFor="min_stock">Min Stock</Label>
               <Input
-                id="minStock"
+                id="min_stock"
                 type="number"
                 min="0"
-                value={formData.minStock}
-                onChange={(e) => handleChange('minStock', parseInt(e.target.value) || 0)}
+                value={formData.min_stock}
+                onChange={(e) => handleChange('min_stock', parseInt(e.target.value) || 0)}
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="price">Price ($)</Label>
+              <Label htmlFor="price">Price (₹)</Label>
               <Input
                 id="price"
                 type="number"
@@ -182,7 +200,11 @@ export function ProductForm({ product, onSuccess }: ProductFormProps) {
             <Button type="button" variant="outline" onClick={() => setOpen(false)}>
               Cancel
             </Button>
-            <Button type="submit" className="gap-2">
+            <Button 
+              type="submit" 
+              className="gap-2"
+              disabled={createProduct.isPending || updateProduct.isPending}
+            >
               <Save className="w-4 h-4" />
               {product ? 'Update' : 'Add'} Product
             </Button>

@@ -1,15 +1,17 @@
 import { useState, useMemo } from 'react';
 import { motion } from 'framer-motion';
-import { useInventoryStore } from '@/store/inventoryStore';
+import { useProducts } from '@/hooks/useProducts';
+import { useBusinesses } from '@/hooks/useBusinesses';
 import { QRCodeModal } from '@/components/products/QRCodeDisplay';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Skeleton } from '@/components/ui/skeleton';
+import { formatINR } from '@/lib/formatCurrency';
 import { 
   Search, 
   Package, 
   Building2, 
-  MapPin, 
   Filter,
   QrCode,
   SlidersHorizontal,
@@ -19,8 +21,11 @@ import { cn } from '@/lib/utils';
 import { useSearchParams } from 'react-router-dom';
 
 const ProductFinder = () => {
-  const { products, businesses } = useInventoryStore();
+  const { data: products = [], isLoading: productsLoading } = useProducts();
+  const { data: businesses = [], isLoading: businessesLoading } = useBusinesses();
   const [searchParams] = useSearchParams();
+  
+  const isLoading = productsLoading || businessesLoading;
   
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedBusiness, setSelectedBusiness] = useState(searchParams.get('business') || 'all');
@@ -36,19 +41,20 @@ const ProductFinder = () => {
       const matchesSearch = 
         p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
         p.sku.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        p.description.toLowerCase().includes(searchQuery.toLowerCase());
+        (p.description || '').toLowerCase().includes(searchQuery.toLowerCase());
       
-      const matchesBusiness = selectedBusiness === 'all' || p.businessId === selectedBusiness;
+      const matchesBusiness = selectedBusiness === 'all' || p.business_id === selectedBusiness;
       const matchesCategory = selectedCategory === 'all' || p.category === selectedCategory;
       
+      // Price ranges in INR
       const matchesPrice = priceRange === 'all' ||
-        (priceRange === 'low' && p.price < 25) ||
-        (priceRange === 'mid' && p.price >= 25 && p.price < 75) ||
-        (priceRange === 'high' && p.price >= 75);
+        (priceRange === 'low' && p.price < 500) ||
+        (priceRange === 'mid' && p.price >= 500 && p.price < 2000) ||
+        (priceRange === 'high' && p.price >= 2000);
       
       const matchesStock = stockFilter === 'all' ||
-        (stockFilter === 'in-stock' && p.quantity > p.minStock) ||
-        (stockFilter === 'low-stock' && p.quantity <= p.minStock && p.quantity > 0);
+        (stockFilter === 'in-stock' && p.current_stock > p.min_stock) ||
+        (stockFilter === 'low-stock' && p.current_stock <= p.min_stock && p.current_stock > 0);
 
       return matchesSearch && matchesBusiness && matchesCategory && matchesPrice && matchesStock;
     });
@@ -73,6 +79,23 @@ const ProductFinder = () => {
     if (quantity <= minStock) return { label: 'Low Stock', class: 'badge-warning' };
     return { label: 'In Stock', class: 'badge-success' };
   };
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen p-6 lg:p-8">
+        <div className="mb-8">
+          <Skeleton className="h-9 w-48 mb-2" />
+          <Skeleton className="h-5 w-72" />
+        </div>
+        <Skeleton className="h-16 mb-4" />
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+          {[1, 2, 3, 4, 5, 6, 7, 8].map(i => (
+            <Skeleton key={i} className="h-64" />
+          ))}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen p-6 lg:p-8">
@@ -177,9 +200,9 @@ const ProductFinder = () => {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">Any Price</SelectItem>
-                  <SelectItem value="low">Under $25</SelectItem>
-                  <SelectItem value="mid">$25 - $75</SelectItem>
-                  <SelectItem value="high">Over $75</SelectItem>
+                  <SelectItem value="low">Under ₹500</SelectItem>
+                  <SelectItem value="mid">₹500 - ₹2,000</SelectItem>
+                  <SelectItem value="high">Over ₹2,000</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -224,8 +247,7 @@ const ProductFinder = () => {
           </motion.div>
         ) : (
           filteredProducts.map((product, index) => {
-            const status = getStockStatus(product.quantity, product.minStock);
-            const business = businesses.find(b => b.id === product.businessId);
+            const status = getStockStatus(product.current_stock, product.min_stock);
             
             return (
               <motion.div
@@ -259,9 +281,9 @@ const ProductFinder = () => {
                 <div className="flex items-center justify-between pt-3 border-t border-border">
                   <div className="flex items-center gap-1 text-xs text-muted-foreground">
                     <Building2 className="w-3 h-3" />
-                    <span className="truncate max-w-[100px]">{product.businessName}</span>
+                    <span className="truncate max-w-[100px]">{product.business_name}</span>
                   </div>
-                  <p className="font-bold text-primary">${product.price.toFixed(2)}</p>
+                  <p className="font-bold text-primary">{formatINR(product.price)}</p>
                 </div>
 
                 <div className="mt-3 flex gap-2">

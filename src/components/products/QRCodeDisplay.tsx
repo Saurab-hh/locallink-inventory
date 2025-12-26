@@ -1,9 +1,8 @@
 import { QRCodeSVG } from 'qrcode.react';
-import { motion } from 'framer-motion';
-import { Download, Share2 } from 'lucide-react';
+import { Download } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { Product } from '@/store/inventoryStore';
+import { Product } from '@/hooks/useProducts';
 
 interface QRCodeDisplayProps {
   product: Product;
@@ -15,7 +14,7 @@ export function QRCodeDisplay({ product, size = 200 }: QRCodeDisplayProps) {
     id: product.id,
     sku: product.sku,
     name: product.name,
-    business: product.businessName,
+    business: product.business_name,
   });
 
   const handleDownload = () => {

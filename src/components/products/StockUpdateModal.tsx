@@ -1,13 +1,12 @@
 import { useState } from 'react';
-import { motion } from 'framer-motion';
-import { useInventoryStore, Product } from '@/store/inventoryStore';
+import { useUpdateStock, Product } from '@/hooks/useProducts';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
-import { toast } from 'sonner';
 import { ArrowUpCircle, ArrowDownCircle, Package } from 'lucide-react';
+import { toast } from 'sonner';
 
 interface StockUpdateModalProps {
   product: Product;
@@ -15,11 +14,11 @@ interface StockUpdateModalProps {
 }
 
 export function StockUpdateModal({ product, trigger }: StockUpdateModalProps) {
-  const { updateStock } = useInventoryStore();
+  const updateStock = useUpdateStock();
   const [open, setOpen] = useState(false);
   const [type, setType] = useState<'in' | 'out'>('in');
   const [quantity, setQuantity] = useState(1);
-  const [reason, setReason] = useState('');
+  const [notes, setNotes] = useState('');
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -29,22 +28,23 @@ export function StockUpdateModal({ product, trigger }: StockUpdateModalProps) {
       return;
     }
 
-    if (type === 'out' && quantity > product.quantity) {
+    if (type === 'out' && quantity > product.current_stock) {
       toast.error('Insufficient stock');
       return;
     }
 
-    updateStock(product.id, quantity, type, reason || (type === 'in' ? 'Stock added' : 'Stock removed'));
-    
-    toast.success(
-      type === 'in' 
-        ? `Added ${quantity} units to ${product.name}` 
-        : `Removed ${quantity} units from ${product.name}`
-    );
-    
-    setOpen(false);
-    setQuantity(1);
-    setReason('');
+    updateStock.mutate({
+      productId: product.id,
+      quantity,
+      type,
+      notes: notes || (type === 'in' ? 'Stock added' : 'Stock removed'),
+    }, {
+      onSuccess: () => {
+        setOpen(false);
+        setQuantity(1);
+        setNotes('');
+      }
+    });
   };
 
   return (
@@ -64,7 +64,7 @@ export function StockUpdateModal({ product, trigger }: StockUpdateModalProps) {
           <div>
             <p className="font-semibold text-foreground">{product.name}</p>
             <p className="text-sm text-muted-foreground">
-              Current stock: <span className="font-mono font-bold">{product.quantity}</span> units
+              Current stock: <span className="font-mono font-bold">{product.current_stock}</span> units
             </p>
           </div>
         </div>
@@ -107,24 +107,24 @@ export function StockUpdateModal({ product, trigger }: StockUpdateModalProps) {
               id="quantity"
               type="number"
               min="1"
-              max={type === 'out' ? product.quantity : undefined}
+              max={type === 'out' ? product.current_stock : undefined}
               value={quantity}
               onChange={(e) => setQuantity(parseInt(e.target.value) || 0)}
               className="text-lg font-mono"
             />
             {type === 'out' && (
               <p className="text-xs text-muted-foreground">
-                Maximum: {product.quantity} units
+                Maximum: {product.current_stock} units
               </p>
             )}
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="reason">Reason (optional)</Label>
+            <Label htmlFor="notes">Reason (optional)</Label>
             <Input
-              id="reason"
-              value={reason}
-              onChange={(e) => setReason(e.target.value)}
+              id="notes"
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
               placeholder={type === 'in' ? 'e.g., New shipment received' : 'e.g., Customer order'}
             />
           </div>
@@ -135,6 +135,7 @@ export function StockUpdateModal({ product, trigger }: StockUpdateModalProps) {
             </Button>
             <Button 
               type="submit" 
+              disabled={updateStock.isPending}
               className={type === 'in' ? 'bg-success hover:bg-success/90' : 'bg-warning hover:bg-warning/90'}
             >
               {type === 'in' ? 'Add' : 'Remove'} Stock

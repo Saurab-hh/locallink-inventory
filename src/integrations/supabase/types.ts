@@ -14,7 +14,130 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      businesses: {
+        Row: {
+          address: string
+          category: string
+          contact: string
+          created_at: string
+          id: string
+          name: string
+          owner: string
+          updated_at: string
+        }
+        Insert: {
+          address: string
+          category: string
+          contact: string
+          created_at?: string
+          id?: string
+          name: string
+          owner: string
+          updated_at?: string
+        }
+        Update: {
+          address?: string
+          category?: string
+          contact?: string
+          created_at?: string
+          id?: string
+          name?: string
+          owner?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      products: {
+        Row: {
+          business_id: string | null
+          category: string
+          created_at: string
+          current_stock: number
+          description: string | null
+          id: string
+          min_stock: number
+          name: string
+          price: number
+          sku: string
+          updated_at: string
+        }
+        Insert: {
+          business_id?: string | null
+          category: string
+          created_at?: string
+          current_stock?: number
+          description?: string | null
+          id?: string
+          min_stock?: number
+          name: string
+          price?: number
+          sku: string
+          updated_at?: string
+        }
+        Update: {
+          business_id?: string | null
+          category?: string
+          created_at?: string
+          current_stock?: number
+          description?: string | null
+          id?: string
+          min_stock?: number
+          name?: string
+          price?: number
+          sku?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "products_business_id_fkey"
+            columns: ["business_id"]
+            isOneToOne: false
+            referencedRelation: "businesses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      stock_history: {
+        Row: {
+          change_amount: number
+          change_type: string
+          created_at: string
+          id: string
+          new_stock: number
+          notes: string | null
+          previous_stock: number
+          product_id: string
+        }
+        Insert: {
+          change_amount: number
+          change_type: string
+          created_at?: string
+          id?: string
+          new_stock: number
+          notes?: string | null
+          previous_stock: number
+          product_id: string
+        }
+        Update: {
+          change_amount?: number
+          change_type?: string
+          created_at?: string
+          id?: string
+          new_stock?: number
+          notes?: string | null
+          previous_stock?: number
+          product_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "stock_history_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
